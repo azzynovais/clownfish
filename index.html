@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clownfish - Notas e Desenhos</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="header">
+        <div class="app-title">Clownfish</div>
+        <div class="control-buttons">
+            <button id="new-note-btn" class="btn tooltip" data-tooltip="Nova Nota">Nova Nota</button>
+            <button id="save-note-btn" class="btn tooltip" data-tooltip="Salvar Nota">Salvar</button>
+            <button id="delete-note-btn" class="btn btn-accent tooltip" data-tooltip="Excluir Nota">Excluir</button>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="sidebar" id="sidebar">
+            <div class="search-box">
+                <input type="text" class="search-input" placeholder="Pesquisar notas..." id="search-notes">
+            </div>
+            <div class="notes-list" id="notes-list">
+                <!-- Notes will be populated here -->
+            </div>
+        </div>
+
+        <div class="sidebar-toggle" id="sidebar-toggle">
+            <span>≡</span>
+        </div>
+
+        <div class="editor-container">
+            <input type="text" class="note-title-input" id="note-title-input" placeholder="Título da Nota">
+            
+            <div class="toolbar">
+                <div class="tool-group">
+                    <button class="tool-btn tooltip" data-tooltip="Negrito" id="bold-btn">B</button>
+                    <button class="tool-btn tooltip" data-tooltip="Itálico" id="italic-btn">I</button>
+                    <button class="tool-btn tooltip" data-tooltip="Sublinhado" id="underline-btn">U</button>
+                </div>
+                
+                <div class="tool-divider"></div>
+                
+                <div class="tool-group">
+                    <button class="tool-btn tooltip" data-tooltip="Modo Texto" id="text-mode-btn">T</button>
+                    <button class="tool-btn tooltip" data-tooltip="Modo Desenho" id="draw-mode-btn">✏️</button>
+                    <button class="tool-btn tooltip" data-tooltip="Borracha" id="erase-mode-btn">🧽</button>
+                </div>
+                
+                <div class="tool-divider"></div>
+                
+                <div class="tool-group">
+                    <input type="color" class="color-picker tooltip" id="color-picker" value="#000000" data-tooltip="Cor">
+                    <input type="range" class="line-width tooltip" id="line-width" min="1" max="20" value="2" data-tooltip="Espessura">
+                    <span id="width-value">2px</span>
+                </div>
+                
+                <div class="tool-divider"></div>
+                
+                <div class="tool-group">
+                    <button class="tool-btn tooltip" data-tooltip="Limpar Desenho" id="clear-canvas-btn">🗑️</button>
+                </div>
+            </div>
+
+            <div class="content-area">
+                <div class="text-editor" id="text-editor" contenteditable="true"></div>
+                <canvas class="drawing-canvas" id="drawing-canvas"></canvas>
+            </div>
+
+            <div class="status-bar">
+                <div id="status-message">Pronto</div>
+                <div id="last-saved">Não salvo</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for confirmations -->
+    <div class="modal-backdrop" id="modal">
+        <div class="modal-content">
+            <div class="modal-header" id="modal-header">Confirmar Ação</div>
+            <div class="modal-body" id="modal-body">
+                Texto da mensagem aqui.
+            </div>
+            <div class="modal-footer">
+                <button class="btn" id="modal-cancel-btn">Cancelar</button>
+                <button class="btn btn-accent" id="modal-confirm-btn">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
