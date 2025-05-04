@@ -3,92 +3,1185 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clownfish - Notas e Desenhos</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Clownfish</title>
+    <style>
+        :root {
+            --primary-color: #ffad73;
+            --primary-dark: #0097A7;
+            --primary-light: #B2EBF2;
+            --accent-color: #f6b494;
+            --background: #FAFAFA;
+            --card-color: #FFFFFF;
+            --text-primary: #212121;
+            --text-secondary: #757575;
+            --divider-color: #BDBDBD;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Roboto', Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--background);
+            color: var(--text-primary);
+            font-size: 16px;
+            line-height: 1.5;
+            overflow-x: hidden;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .sidebar {
+            width: 250px;
+            background-color: var(--card-color);
+            box-shadow: 2px 0px 5px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-header {
+            padding: 16px;
+            background-color: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+        }
+
+        .sidebar-header h1 {
+            font-size: 20px;
+            font-weight: 500;
+        }
+
+        .sidebar-header i {
+            margin-right: 10px;
+        }
+
+        .notes-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .note-item {
+            padding: 12px 16px;
+            margin-bottom: 6px;
+            background-color: var(--card-color);
+            border-radius: 2px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .note-item:hover {
+            background-color: var(--primary-light);
+        }
+
+        .note-item.active {
+            background-color: var(--primary-light);
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .note-item-title {
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .note-item-date {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .sidebar-footer {
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            border-top: 1px solid var(--divider-color);
+        }
+
+        .sidebar-btn {
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+            color: var(--text-secondary);
+            padding: 8px;
+            border-radius: 50%;
+            transition: background-color 0.2s ease;
+        }
+
+        .sidebar-btn:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+            color: var(--primary-color);
+        }
+
+        .add-note-btn {
+            background-color: var(--accent-color);
+            color: white;
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-right: 16px;
+        }
+
+        .add-note-btn:hover {
+            background-color: #00897B;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            position: relative;
+        }
+
+        .toolbar {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            z-index: 5;
+        }
+
+        .menu-btn {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            margin-right: 16px;
+            display: none;
+        }
+
+        .toolbar-title {
+            flex: 1;
+        }
+
+        .toolbar-title input {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 18px;
+            font-weight: 500;
+            width: 100%;
+            padding: 8px 0;
+        }
+
+        .toolbar-title input:focus {
+            outline: none;
+            border-bottom: 2px solid white;
+        }
+
+        .toolbar-title input::placeholder {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .toolbar-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .toolbar-btn {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 20px;
+            padding: 8px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .toolbar-btn:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .formatting-toolbar {
+            background-color: var(--card-color);
+            display: flex;
+            padding: 8px 16px;
+            overflow-x: auto;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .format-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 16px;
+            padding: 8px;
+            margin: 0 2px;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .format-btn:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+            color: var(--primary-color);
+        }
+
+        .format-btn.active {
+            color: var(--primary-color);
+            background-color: var(--primary-light);
+        }
+
+        .drawing-toolbar {
+            background-color: var(--card-color);
+            display: flex;
+            padding: 8px 16px;
+            overflow-x: auto;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-top: 1px solid var(--divider-color);
+        }
+
+        .drawing-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 16px;
+            padding: 8px;
+            margin: 0 2px;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .drawing-btn:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+            color: var(--primary-color);
+        }
+
+        .drawing-btn.active {
+            color: var(--primary-color);
+            background-color: var(--primary-light);
+        }
+
+        .color-picker {
+            display: flex;
+            align-items: center;
+            margin-left: 8px;
+        }
+
+        .color-option {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            margin: 0 4px;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        .color-option.active {
+            border-color: var(--text-primary);
+        }
+
+        .line-width {
+            display: flex;
+            align-items: center;
+            margin-left: 16px;
+        }
+
+        .line-width input {
+            width: 80px;
+        }
+
+        .editor-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background-color: var(--card-color);
+            margin: 16px;
+            border-radius: 2px;
+            box-shadow: 0 1px 5px rgba(0, 0, 0, 0.15);
+        }
+
+        .paper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: white;
+            background-image: linear-gradient(#E0F7FA 1px, transparent 1px);
+            background-size: 100% 20px;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .text-layer {
+            position: relative;
+            min-height: 100%;
+            z-index: 1;
+        }
+
+        .text-editor {
+            width: 100%;
+            min-height: 100%;
+            border: none;
+            background: transparent;
+            padding: 0;
+            font-size: 16px;
+            color: var(--text-primary);
+            line-height: 1.5;
+            outline: none;
+            resize: none;
+        }
+
+        .canvas-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .drawing-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .highlighted-text {
+            background-color: rgba(255, 255, 0, 0.3);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: var(--card-color);
+            padding: 24px;
+            border-radius: 4px;
+            width: 400px;
+            max-width: 90%;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .modal-title {
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .close-modal {
+            background: transparent;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .modal-body {
+            margin-bottom: 16px;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            font-weight: 500;
+            text-transform: uppercase;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-flat {
+            background-color: transparent;
+            color: var(--primary-color);
+        }
+
+        .btn-flat:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .btn-danger {
+            background-color: #F44336;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #D32F2F;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #323232;
+            color: white;
+            padding: 16px 24px;
+            border-radius: 2px;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                height: 100%;
+                transform: translateX(-100%);
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .menu-btn {
+                display: block;
+            }
+        }
+    </style>
 </head>
 <body>
-    <div class="header">
-        <div class="app-title">Clownfish</div>
-        <div class="control-buttons">
-            <button id="new-note-btn" class="btn tooltip" data-tooltip="Nova Nota">Nova Nota</button>
-            <button id="save-note-btn" class="btn tooltip" data-tooltip="Salvar Nota">Salvar</button>
-            <button id="delete-note-btn" class="btn btn-accent tooltip" data-tooltip="Excluir Nota">Excluir</button>
-        </div>
-    </div>
-
-    <div class="main-container">
-        <div class="sidebar" id="sidebar">
-            <div class="search-box">
-                <input type="text" class="search-input" placeholder="Pesquisar notas..." id="search-notes">
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <i class="fas fa-book"></i>
+                <h1>Clownfish</h1>
             </div>
             <div class="notes-list" id="notes-list">
-                <!-- Notes will be populated here -->
             </div>
-        </div>
+            <div class="sidebar-footer">
+                <button id="import-btn" class="sidebar-btn" title="Importar notas">
+                    <i class="fas fa-file-import"></i>
+                </button>
+                <button id="export-btn" class="sidebar-btn" title="Exportar notas">
+                    <i class="fas fa-file-export"></i>
+                </button>
+                <input type="file" id="import-file" class="file-input" accept=".json">
+            </div>
+        </aside>
 
-        <div class="sidebar-toggle" id="sidebar-toggle">
-            <span>≡</span>
-        </div>
-
-        <div class="editor-container">
-            <input type="text" class="note-title-input" id="note-title-input" placeholder="Título da Nota">
-            
+        <main class="main-content">
             <div class="toolbar">
-                <div class="tool-group">
-                    <button class="tool-btn tooltip" data-tooltip="Negrito" id="bold-btn">B</button>
-                    <button class="tool-btn tooltip" data-tooltip="Itálico" id="italic-btn">I</button>
-                    <button class="tool-btn tooltip" data-tooltip="Sublinhado" id="underline-btn">U</button>
+                <button id="menu-toggle" class="menu-btn">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="toolbar-title">
+                    <input type="text" id="note-title" placeholder="Título da nota">
                 </div>
-                
-                <div class="tool-divider"></div>
-                
-                <div class="tool-group">
-                    <button class="tool-btn tooltip" data-tooltip="Modo Texto" id="text-mode-btn">T</button>
-                    <button class="tool-btn tooltip" data-tooltip="Modo Desenho" id="draw-mode-btn">✏️</button>
-                    <button class="tool-btn tooltip" data-tooltip="Borracha" id="erase-mode-btn">🧽</button>
-                </div>
-                
-                <div class="tool-divider"></div>
-                
-                <div class="tool-group">
-                    <input type="color" class="color-picker tooltip" id="color-picker" value="#000000" data-tooltip="Cor">
-                    <input type="range" class="line-width tooltip" id="line-width" min="1" max="20" value="2" data-tooltip="Espessura">
-                    <span id="width-value">2px</span>
-                </div>
-                
-                <div class="tool-divider"></div>
-                
-                <div class="tool-group">
-                    <button class="tool-btn tooltip" data-tooltip="Limpar Desenho" id="clear-canvas-btn">🗑️</button>
+                <div class="toolbar-actions">
+                    <button id="save-btn" class="toolbar-btn" title="Salvar">
+                        <i class="fas fa-save"></i>
+                    </button>
+                    <button id="delete-btn" class="toolbar-btn" title="Excluir">
+                        <i class="fas fa-trash"></i>
+                    </button>
                 </div>
             </div>
 
-            <div class="content-area">
-                <div class="text-editor" id="text-editor" contenteditable="true"></div>
-                <canvas class="drawing-canvas" id="drawing-canvas"></canvas>
+            <div class="formatting-toolbar">
+                <button class="format-btn" data-format="bold" title="Negrito">
+                    <i class="fas fa-bold"></i>
+                </button>
+                <button class="format-btn" data-format="italic" title="Itálico">
+                    <i class="fas fa-italic"></i>
+                </button>
+                <button class="format-btn" data-format="underline" title="Sublinhado">
+                    <i class="fas fa-underline"></i>
+                </button>
+                <button class="format-btn" data-format="strikethrough" title="Tachado">
+                    <i class="fas fa-strikethrough"></i>
+                </button>
+                <button class="format-btn" data-format="h1" title="Título 1">H1</button>
+                <button class="format-btn" data-format="h2" title="Título 2">H2</button>
+                <button class="format-btn" data-format="h3" title="Título 3">H3</button>
+                <button class="format-btn" data-format="ul" title="Lista não ordenada">
+                    <i class="fas fa-list-ul"></i>
+                </button>
+                <button class="format-btn" data-format="ol" title="Lista ordenada">
+                    <i class="fas fa-list-ol"></i>
+                </button>
+                <button class="format-btn" data-format="alignLeft" title="Alinhar à esquerda">
+                    <i class="fas fa-align-left"></i>
+                </button>
+                <button class="format-btn" data-format="alignCenter" title="Alinhar ao centro">
+                    <i class="fas fa-align-center"></i>
+                </button>
+                <button class="format-btn" data-format="alignRight" title="Alinhar à direita">
+                    <i class="fas fa-align-right"></i>
+                </button>
             </div>
 
-            <div class="status-bar">
-                <div id="status-message">Pronto</div>
-                <div id="last-saved">Não salvo</div>
+            <div class="drawing-toolbar">
+                <button class="drawing-btn" data-tool="pen" title="Caneta">
+                    <i class="fas fa-pen"></i>
+                </button>
+                <button class="drawing-btn" data-tool="line" title="Linha">
+                    <i class="fas fa-slash"></i>
+                </button>
+                <button class="drawing-btn" data-tool="rect" title="Retângulo">
+                    <i class="far fa-square"></i>
+                </button>
+                <button class="drawing-btn" data-tool="circle" title="Círculo">
+                    <i class="far fa-circle"></i>
+                </button>
+                <button class="drawing-btn" data-tool="eraser" title="Borracha">
+                    <i class="fas fa-eraser"></i>
+                </button>
+                <button class="drawing-btn" data-tool="text" title="Texto">
+                    <i class="fas fa-font"></i>
+                </button>
+                <div class="color-picker">
+                    <div class="color-option active" data-color="#000000" style="background-color: #000000;"></div>
+                    <div class="color-option" data-color="#F44336" style="background-color: #F44336;"></div>
+                    <div class="color-option" data-color="#2196F3" style="background-color: #2196F3;"></div>
+                    <div class="color-option" data-color="#4CAF50" style="background-color: #4CAF50;"></div>
+                    <div class="color-option" data-color="#FFC107" style="background-color: #FFC107;"></div>
+                </div>
+                <div class="line-width">
+                    <input type="range" min="1" max="20" value="3" id="line-width">
+                </div>
             </div>
-        </div>
+
+            <div class="editor-container">
+                <div class="paper">
+                    <div class="text-layer">
+                        <div id="text-editor" class="text-editor" contenteditable="true"></div>
+                    </div>
+                    <div class="canvas-layer">
+                        <canvas id="drawing-canvas" class="drawing-canvas"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <button class="add-note-btn" id="add-note-btn">
+                <i class="fas fa-plus"></i>
+            </button>
+        </main>
     </div>
 
-    <!-- Modal for confirmations -->
-    <div class="modal-backdrop" id="modal">
+    <div class="modal" id="delete-modal">
         <div class="modal-content">
-            <div class="modal-header" id="modal-header">Confirmar Ação</div>
-            <div class="modal-body" id="modal-body">
-                Texto da mensagem aqui.
+            <div class="modal-header">
+                <h3 class="modal-title">Excluir nota</h3>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza que deseja excluir esta nota? Esta ação não pode ser desfeita.</p>
             </div>
             <div class="modal-footer">
-                <button class="btn" id="modal-cancel-btn">Cancelar</button>
-                <button class="btn btn-accent" id="modal-confirm-btn">Confirmar</button>
+                <button class="btn btn-flat" id="cancel-delete">Cancelar</button>
+                <button class="btn btn-danger" id="confirm-delete">Excluir</button>
             </div>
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <div class="toast" id="toast"></div>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            let notes = [];
+            let currentNoteId = null;
+            let isDrawingMode = false;
+            let drawingTool = 'pen';
+            let drawingColor = '#000000';
+            let lineWidth = 3;
+            let isDrawing = false;
+            let startX = 0;
+            let startY = 0;
+            let autoSaveTimeout = null;
+
+            const sidebar = document.querySelector('.sidebar');
+            const notesList = document.getElementById('notes-list');
+            const addNoteBtn = document.getElementById('add-note-btn');
+            const noteTitle = document.getElementById('note-title');
+            const textEditor = document.getElementById('text-editor');
+            const canvas = document.getElementById('drawing-canvas');
+            const context = canvas.getContext('2d');
+            const saveBtn = document.getElementById('save-btn');
+            const deleteBtn = document.getElementById('delete-btn');
+            const menuToggle = document.getElementById('menu-toggle');
+            const importBtn = document.getElementById('import-btn');
+            const exportBtn = document.getElementById('export-btn');
+            const importFile = document.getElementById('import-file');
+            const formatBtns = document.querySelectorAll('.format-btn');
+            const drawingBtns = document.querySelectorAll('.drawing-btn');
+            const colorOptions = document.querySelectorAll('.color-option');
+            const lineWidthInput = document.getElementById('line-width');
+            const deleteModal = document.getElementById('delete-modal');
+            const cancelDelete = document.getElementById('cancel-delete');
+            const confirmDelete = document.getElementById('confirm-delete');
+            const closeModal = document.querySelector('.close-modal');
+            const toast = document.getElementById('toast');
+
+            function init() {
+                loadNotes();
+                
+                resizeCanvas();
+                
+                if (notes.length === 0) {
+                    createNewNote();
+                } else {
+                    showNote(notes[0].id);
+                }
+                
+                setupEventListeners();
+                
+                initDrawingTools();
+                
+                initFormatButtons();
+            }
+
+            function loadNotes() {
+                const savedNotes = localStorage.getItem('clownfish-notes');
+                if (savedNotes) {
+                    notes = JSON.parse(savedNotes);
+                }
+                renderNotesList();
+            }
+
+            function renderNotesList() {
+                notesList.innerHTML = '';
+                notes.forEach(note => {
+                    const noteItem = document.createElement('div');
+                    noteItem.className = 'note-item';
+                    if (note.id === currentNoteId) {
+                        noteItem.classList.add('active');
+                    }
+                    noteItem.dataset.id = note.id;
+                    
+                    const title = document.createElement('div');
+                    title.className = 'note-item-title';
+                    title.textContent = note.title || 'Sem título';
+                    
+                    const date = document.createElement('div');
+                    date.className = 'note-item-date';
+                    date.textContent = formatDate(note.updatedAt);
+                    
+                    noteItem.appendChild(title);
+                    noteItem.appendChild(date);
+                    notesList.appendChild(noteItem);
+                    
+                    noteItem.addEventListener('click', () => {
+                        showNote(note.id);
+                    });
+                });
+            }
+
+            function formatDate(timestamp) {
+                const date = new Date(timestamp);
+                return date.toLocaleDateString() + ' ' + date.toLocaleTimeString().substring(0, 5);
+            }
+
+            function showNote(id) {
+                if (currentNoteId) {
+                    saveCurrentNote();
+                }
+                
+                const note = notes.find(n => n.id === id);
+                if (!note) return;
+                
+                currentNoteId = id;
+                
+                noteTitle.value = note.title || '';
+                textEditor.innerHTML = note.content || '';
+                
+                clearCanvas();
+                if (note.drawings) {
+                    drawStoredDrawings(note.drawings);
+                }
+                
+                renderNotesList();
+            }
+
+            function saveCurrentNote() {
+                if (!currentNoteId) return;
+                
+                const index = notes.findIndex(n => n.id === currentNoteId);
+                if (index !== -1) {
+                    notes[index].title = noteTitle.value;
+                    notes[index].content = textEditor.innerHTML;
+                    notes[index].updatedAt = Date.now();
+                    
+                    notes[index].drawings = [];
+                    
+                    saveNotesToStorage();
+                    
+                    renderNotesList();
+                    
+                    showToast('Nota salva com sucesso!');
+                }
+            }
+
+            function createNewNote() {
+                if (currentNoteId) {
+                    saveCurrentNote();
+                }
+                
+                const newNote = {
+                    id: Date.now().toString(),
+                    title: '',
+                    content: '',
+                    drawings: [],
+                    createdAt: Date.now(),
+                    updatedAt: Date.now()
+                };
+                
+                notes.unshift(newNote);
+                
+                saveNotesToStorage();
+                
+                showNote(newNote.id);
+                
+                noteTitle.focus();
+            }
+
+            function deleteCurrentNote() {
+                if (!currentNoteId) return;
+                
+                const index = notes.findIndex(n => n.id === currentNoteId);
+                if (index !== -1) {
+                    notes.splice(index, 1);
+                    
+                    saveNotesToStorage();
+                    
+                    if (notes.length > 0) {
+                        showNote(notes[0].id);
+                    } else {
+                        createNewNote();
+                    }
+                    
+                    showToast('Nota excluída com sucesso!');
+                }
+            }
+
+            function saveNotesToStorage() {
+                localStorage.setItem('clownfish-notes', JSON.stringify(notes));
+            }
+
+            function setupEventListeners() {
+                addNoteBtn.addEventListener('click', createNewNote);
+                
+                saveBtn.addEventListener('click', () => saveCurrentNote());
+                
+                deleteBtn.addEventListener('click', () => {
+                    if (currentNoteId) {
+                        deleteModal.style.display = 'flex';
+                    }
+                });
+                
+                confirmDelete.addEventListener('click', () => {
+                    deleteCurrentNote();
+                    deleteModal.style.display = 'none';
+                });
+                
+                cancelDelete.addEventListener('click', () => {
+                    deleteModal.style.display = 'none';
+                });
+                
+                closeModal.addEventListener('click', () => {
+                    deleteModal.style.display = 'none';
+                });
+                
+                menuToggle.addEventListener('click', () => {
+                    sidebar.classList.toggle('active');
+                });
+                
+                textEditor.addEventListener('input', () => {
+                    if (autoSaveTimeout) {
+                        clearTimeout(autoSaveTimeout);
+                    }
+                    autoSaveTimeout = setTimeout(() => {
+                        saveCurrentNote();
+                    }, 2000);
+                });
+                
+                noteTitle.addEventListener('input', () => {
+                    if (autoSaveTimeout) {
+                        clearTimeout(autoSaveTimeout);
+                    }
+                    autoSaveTimeout = setTimeout(() => {
+                        saveCurrentNote();
+                    }, 2000);
+                });
+                
+                importBtn.addEventListener('click', () => {
+                    importFile.click();
+                });
+                
+                importFile.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            try {
+                                const importedNotes = JSON.parse(event.target.result);
+                                if (Array.isArray(importedNotes)) {
+                                    notes = importedNotes;
+                                    saveNotesToStorage();
+                                    loadNotes();
+                                    if (notes.length > 0) {
+                                        showNote(notes[0].id);
+                                    }
+                                    showToast('Notas importadas com sucesso!');
+                                }
+                            } catch (err) {
+                                showToast('Erro ao importar: formato inválido');
+                            }
+                        };
+                        reader.readAsText(file);
+                        importFile.value = '';
+                    }
+                });
+                
+                exportBtn.addEventListener('click', () => {
+                    const dataStr = JSON.stringify(notes);
+                    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+                    
+                    const exportFileDefaultName = 'clownfish-export.json';
+                    
+                    const linkElement = document.createElement('a');
+                    linkElement.setAttribute('href', dataUri);
+                    linkElement.setAttribute('download', exportFileDefaultName);
+                    linkElement.click();
+                    
+                    showToast('Notas exportadas com sucesso!');
+                });
+                
+                canvas.addEventListener('mousedown', startDrawing);
+                canvas.addEventListener('mousemove', draw);
+                canvas.addEventListener('mouseup', stopDrawing);
+                canvas.addEventListener('mouseout', stopDrawing);
+                
+                canvas.addEventListener('touchstart', handleTouchStart);
+                canvas.addEventListener('touchmove', handleTouchMove);
+                canvas.addEventListener('touchend', handleTouchEnd);
+                
+                window.addEventListener('resize', resizeCanvas);
+            }
+
+            function initDrawingTools() {
+                drawingBtns.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        drawingBtns.forEach(b => b.classList.remove('active'));
+                        
+                        btn.classList.add('active');
+                        
+                        drawingTool = btn.dataset.tool;
+                        
+                        if (drawingTool === 'text') {
+                            isDrawingMode = false;
+                            canvas.style.pointerEvents = 'none';
+                        } else {
+                            isDrawingMode = true;
+                            canvas.style.pointerEvents = 'auto';
+                        }
+                    });
+                });
+                
+                colorOptions.forEach(option => {
+                    option.addEventListener('click', () => {
+                        colorOptions.forEach(o => o.classList.remove('active'));
+                        
+                        option.classList.add('active');
+                        
+                        drawingColor = option.dataset.color;
+                    });
+                });
+                
+                lineWidthInput.addEventListener('input', () => {
+                    lineWidth = lineWidthInput.value;
+                });
+                
+                drawingBtns[0].click();
+            }
+
+            function initFormatButtons() {
+                formatBtns.forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const format = btn.dataset.format;
+                        formatText(format);
+                    });
+                });
+            }
+
+            function formatText(format) {
+                document.execCommand(format, false, null);
+                textEditor.focus();
+            }
+
+            function resizeCanvas() {
+                const container = canvas.parentElement;
+                canvas.width = container.offsetWidth;
+                canvas.height = container.offsetHeight;
+                
+                if (currentNoteId) {
+                    const note = notes.find(n => n.id === currentNoteId);
+                    if (note && note.drawings) {
+                        drawStoredDrawings(note.drawings);
+                    }
+                }
+            }
+
+            function startDrawing(e) {
+                if (!isDrawingMode) return;
+                
+                isDrawing = true;
+                
+                const rect = canvas.getBoundingClientRect();
+                startX = e.clientX - rect.left;
+                startY = e.clientY - rect.top;
+                
+                if (drawingTool === 'pen') {
+                    context.beginPath();
+                    context.moveTo(startX, startY);
+                }
+            }
+
+            function draw(e) {
+                if (!isDrawing || !isDrawingMode) return;
+                
+                const rect = canvas.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                context.lineWidth = lineWidth;
+                context.lineCap = 'round';
+                context.strokeStyle = drawingColor;
+                
+                switch (drawingTool) {
+                    case 'pen':
+                        context.lineTo(x, y);
+                        context.stroke();
+                        break;
+                    case 'line':
+                        clearCanvas();
+                        redrawStoredDrawings();
+                        
+                        context.beginPath();
+                        context.moveTo(startX, startY);
+                        context.lineTo(x, y);
+                        context.stroke();
+                        break;
+                    case 'rect':
+                        clearCanvas();
+                        redrawStoredDrawings();
+                        
+                        context.beginPath();
+                        context.rect(startX, startY, x - startX, y - startY);
+                        context.stroke();
+                        break;
+                    case 'circle':
+                        clearCanvas();
+                        redrawStoredDrawings();
+                        
+                        const radius = Math.sqrt(Math.pow(x - startX, 2) + Math.pow(y - startY, 2));
+                        context.beginPath();
+                        context.arc(startX, startY, radius, 0, 2 * Math.PI);
+                        context.stroke();
+                        break;
+                    case 'eraser':
+                        context.globalCompositeOperation = 'destination-out';
+                        context.beginPath();
+                        context.arc(x, y, lineWidth * 2, 0, Math.PI * 2);
+                        context.fill();
+                        context.globalCompositeOperation = 'source-over';
+                        break;
+                }
+            }
+
+            function stopDrawing() {
+                if (!isDrawing || !isDrawingMode) return;
+                
+                isDrawing = false;
+                
+                if (currentNoteId) {
+                    const note = notes.find(n => n.id === currentNoteId);
+                    if (note) {
+                        if (!note.drawings) {
+                            note.drawings = [];
+                        }
+                        
+                        const drawing = {
+                            tool: drawingTool,
+                            color: drawingColor,
+                            lineWidth: lineWidth,
+                            startX: startX,
+                            startY: startY,
+                            endX: startX, 
+                            endY: startY, 
+                            points: [] 
+                        };
+                        
+                        note.drawings.push(drawing);
+                        
+                        note.updatedAt = Date.now();
+                        saveNotesToStorage();
+                        renderNotesList();
+                    }
+                }
+            }
+
+            function handleTouchStart(e) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const mouseEvent = new MouseEvent('mousedown', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                canvas.dispatchEvent(mouseEvent);
+            }
+
+            function handleTouchMove(e) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const mouseEvent = new MouseEvent('mousemove', {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                canvas.dispatchEvent(mouseEvent);
+            }
+
+            function handleTouchEnd(e) {
+                e.preventDefault();
+                const mouseEvent = new MouseEvent('mouseup', {});
+                canvas.dispatchEvent(mouseEvent);
+            }
+
+            function clearCanvas() {
+                context.clearRect(0, 0, canvas.width, canvas.height);
+            }
+
+            function drawStoredDrawings(drawings) {
+                if (!drawings || !Array.isArray(drawings)) return;
+                
+                drawings.forEach(drawing => {
+                    context.lineWidth = drawing.lineWidth;
+                    context.strokeStyle = drawing.color;
+                    context.lineCap = 'round';
+                    
+                    switch (drawing.tool) {
+                        case 'pen':
+                            if (drawing.points && drawing.points.length > 0) {
+                                context.beginPath();
+                                context.moveTo(drawing.points[0].x, drawing.points[0].y);
+                                
+                                for (let i = 1; i < drawing.points.length; i++) {
+                                    context.lineTo(drawing.points[i].x, drawing.points[i].y);
+                                }
+                                
+                                context.stroke();
+                            }
+                            break;
+                        case 'line':
+                            context.beginPath();
+                            context.moveTo(drawing.startX, drawing.startY);
+                            context.lineTo(drawing.endX, drawing.endY);
+                            context.stroke();
+                            break;
+                        case 'rect':
+                            context.beginPath();
+                            context.rect(drawing.startX, drawing.startY, 
+                                drawing.endX - drawing.startX, drawing.endY - drawing.startY);
+                            context.stroke();
+                            break;
+                        case 'circle':
+                            const radius = Math.sqrt(
+                                Math.pow(drawing.endX - drawing.startX, 2) + 
+                                Math.pow(drawing.endY - drawing.startY, 2)
+                            );
+                            context.beginPath();
+                            context.arc(drawing.startX, drawing.startY, radius, 0, 2 * Math.PI);
+                            context.stroke();
+                            break;
+                        case 'eraser':
+                            break;
+                    }
+                });
+            }
+
+            function redrawStoredDrawings() {
+                if (currentNoteId) {
+                    const note = notes.find(n => n.id === currentNoteId);
+                    if (note && note.drawings) {
+                        drawStoredDrawings(note.drawings);
+                    }
+                }
+            }
+
+            function showToast(message) {
+                toast.textContent = message;
+                toast.classList.add('show');
+                
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 3000);
+            }
+
+            init();
+        });
+    </script>
 </body>
 </html>
