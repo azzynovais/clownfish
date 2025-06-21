@@ -218,6 +218,11 @@
             background-color: rgba(255, 255, 255, 0.2);
         }
 
+        .toolbar-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         .formatting-toolbar {
             background-color: var(--card-color);
             display: flex;
@@ -363,10 +368,6 @@
         .drawing-canvas {
             width: 100%;
             height: 100%;
-        }
-
-        .highlighted-text {
-            background-color: rgba(255, 255, 0, 0.3);
         }
 
         .modal {
@@ -530,6 +531,12 @@
                     <input type="text" id="note-title" placeholder="Título da nota">
                 </div>
                 <div class="toolbar-actions">
+                    <button id="undo-btn" class="toolbar-btn" title="Desfazer desenho" disabled>
+                        <i class="fas fa-undo"></i>
+                    </button>
+                    <button id="redo-btn" class="toolbar-btn" title="Refazer desenho" disabled>
+                        <i class="fas fa-redo"></i>
+                    </button>
                     <button id="save-btn" class="toolbar-btn" title="Salvar">
                         <i class="fas fa-save"></i>
                     </button>
@@ -641,547 +648,712 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            let notes = [];
-            let currentNoteId = null;
-            let isDrawingMode = false;
-            let drawingTool = 'pen';
-            let drawingColor = '#000000';
-            let lineWidth = 3;
-            let isDrawing = false;
-            let startX = 0;
-            let startY = 0;
-            let autoSaveTimeout = null;
+ document.addEventListener('DOMContentLoaded', function() {
+    // State management
+    let notes = [];
+    let currentNoteId = null;
+    let drawingHistory = [];
+    let historyStep = -1;
+    let autoSaveTimeout = null;
 
-            const sidebar = document.querySelector('.sidebar');
-            const notesList = document.getElementById('notes-list');
-            const addNoteBtn = document.getElementById('add-note-btn');
-            const noteTitle = document.getElementById('note-title');
-            const textEditor = document.getElementById('text-editor');
-            const canvas = document.getElementById('drawing-canvas');
-            const context = canvas.getContext('2d');
-            const saveBtn = document.getElementById('save-btn');
-            const deleteBtn = document.getElementById('delete-btn');
-            const menuToggle = document.getElementById('menu-toggle');
-            const importBtn = document.getElementById('import-btn');
-            const exportBtn = document.getElementById('export-btn');
-            const importFile = document.getElementById('import-file');
-            const formatBtns = document.querySelectorAll('.format-btn');
-            const drawingBtns = document.querySelectorAll('.drawing-btn');
-            const colorOptions = document.querySelectorAll('.color-option');
-            const lineWidthInput = document.getElementById('line-width');
-            const deleteModal = document.getElementById('delete-modal');
-            const cancelDelete = document.getElementById('cancel-delete');
-            const confirmDelete = document.getElementById('confirm-delete');
-            const closeModal = document.querySelector('.close-modal');
-            const toast = document.getElementById('toast');
+    // Drawing state
+    let isDrawingMode = false;
+    let drawingTool = 'pen';
+    let drawingColor = '#000000';
+    let lineWidth = 3;
+    let isDrawing = false;
+    let startX = 0;
+    let startY = 0;
+    let currentPath = [];
 
-            function init() {
-                loadNotes();
-                
-                resizeCanvas();
-                
-                if (notes.length === 0) {
-                    createNewNote();
-                } else {
-                    showNote(notes[0].id);
-                }
-                
-                setupEventListeners();
-                
-                initDrawingTools();
-                
-                initFormatButtons();
+    // DOM elements
+    const elements = {
+        sidebar: document.querySelector('.sidebar'),
+        notesList: document.getElementById('notes-list'),
+        addNoteBtn: document.getElementById('add-note-btn'),
+        noteTitle: document.getElementById('note-title'),
+        textEditor: document.getElementById('text-editor'),
+        canvas: document.getElementById('drawing-canvas'),
+        saveBtn: document.getElementById('save-btn'),
+        deleteBtn: document.getElementById('delete-btn'),
+        undoBtn: document.getElementById('undo-btn'),
+        redoBtn: document.getElementById('redo-btn'),
+        menuToggle: document.getElementById('menu-toggle'),
+        importBtn: document.getElementById('import-btn'),
+        exportBtn: document.getElementById('export-btn'),
+        importFile: document.getElementById('import-file'),
+        deleteModal: document.getElementById('delete-modal'),
+        toast: document.getElementById('toast'),
+        drawingBtns: document.querySelectorAll('.drawing-btn'),
+        colorOptions: document.querySelectorAll('.color-option'),
+        lineWidthInput: document.getElementById('line-width'),
+        formatBtns: document.querySelectorAll('.format-btn')
+    };
+
+    const context = elements.canvas?.getContext('2d');
+
+    // Initialize application
+    function init() {
+        if (!elements.canvas || !context) {
+            console.error('Canvas element not found');
+            return;
+        }
+        
+        loadNotes();
+        resizeCanvas();
+        
+        if (notes.length === 0) {
+            createNewNote();
+        } else {
+            showNote(notes[0].id);
+        }
+        
+        setupEventListeners();
+        initDrawingTools();
+        initFormatButtons();
+        saveCanvasState();
+    }
+
+    // Notes management
+    function loadNotes() {
+        try {
+            const savedNotes = localStorage.getItem('clownfish-notes');
+            if (savedNotes) {
+                notes = JSON.parse(savedNotes);
             }
+        } catch (e) {
+            console.error('Error loading notes:', e);
+            notes = [];
+        }
+        renderNotesList();
+    }
 
-            function loadNotes() {
-                const savedNotes = localStorage.getItem('clownfish-notes');
-                if (savedNotes) {
-                    notes = JSON.parse(savedNotes);
-                }
-                renderNotesList();
+    function renderNotesList() {
+        if (!elements.notesList) return;
+        
+        elements.notesList.innerHTML = '';
+        notes.forEach(note => {
+            const noteItem = document.createElement('div');
+            noteItem.className = `note-item ${note.id === currentNoteId ? 'active' : ''}`;
+            noteItem.dataset.id = note.id;
+            noteItem.innerHTML = `
+                <div class="note-item-title">${escapeHtml(note.title || 'Sem título')}</div>
+                <div class="note-item-date">${formatDate(note.updatedAt)}</div>
+            `;
+            noteItem.addEventListener('click', () => showNote(note.id));
+            elements.notesList.appendChild(noteItem);
+        });
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function formatDate(timestamp) {
+        const date = new Date(timestamp);
+        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString().substring(0, 5);
+    }
+
+    function showNote(id) {
+        if (currentNoteId) saveCurrentNote();
+        
+        const note = notes.find(n => n.id === id);
+        if (!note) return;
+        
+        currentNoteId = id;
+        if (elements.noteTitle) elements.noteTitle.value = note.title || '';
+        if (elements.textEditor) elements.textEditor.innerHTML = note.content || '';
+        
+        clearCanvas();
+        if (note.drawings) {
+            drawStoredDrawings(note.drawings);
+        }
+        
+        drawingHistory = [];
+        historyStep = -1;
+        saveCanvasState();
+        updateUndoRedoButtons();
+        renderNotesList();
+    }
+
+    function saveCurrentNote() {
+        if (!currentNoteId) return;
+        
+        const index = notes.findIndex(n => n.id === currentNoteId);
+        if (index !== -1) {
+            notes[index].title = elements.noteTitle?.value || '';
+            notes[index].content = elements.textEditor?.innerHTML || '';
+            notes[index].updatedAt = Date.now();
+            notes[index].drawings = getCanvasData();
+            
+            saveNotesToStorage();
+            renderNotesList();
+            showToast('Nota salva!');
+        }
+    }
+
+    function createNewNote() {
+        if (currentNoteId) saveCurrentNote();
+        
+        const newNote = {
+            id: Date.now().toString(),
+            title: '',
+            content: '',
+            drawings: [],
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+        };
+        
+        notes.unshift(newNote);
+        saveNotesToStorage();
+        showNote(newNote.id);
+        if (elements.noteTitle) elements.noteTitle.focus();
+    }
+
+    function deleteCurrentNote() {
+        if (!currentNoteId) return;
+        
+        const index = notes.findIndex(n => n.id === currentNoteId);
+        if (index !== -1) {
+            notes.splice(index, 1);
+            saveNotesToStorage();
+            
+            if (notes.length > 0) {
+                showNote(notes[0].id);
+            } else {
+                createNewNote();
             }
+            
+            showToast('Nota excluída!');
+        }
+    }
 
-            function renderNotesList() {
-                notesList.innerHTML = '';
-                notes.forEach(note => {
-                    const noteItem = document.createElement('div');
-                    noteItem.className = 'note-item';
-                    if (note.id === currentNoteId) {
-                        noteItem.classList.add('active');
-                    }
-                    noteItem.dataset.id = note.id;
-                    
-                    const title = document.createElement('div');
-                    title.className = 'note-item-title';
-                    title.textContent = note.title || 'Sem título';
-                    
-                    const date = document.createElement('div');
-                    date.className = 'note-item-date';
-                    date.textContent = formatDate(note.updatedAt);
-                    
-                    noteItem.appendChild(title);
-                    noteItem.appendChild(date);
-                    notesList.appendChild(noteItem);
-                    
-                    noteItem.addEventListener('click', () => {
-                        showNote(note.id);
-                    });
-                });
+    function saveNotesToStorage() {
+        try {
+            localStorage.setItem('clownfish-notes', JSON.stringify(notes));
+        } catch (e) {
+            console.error('Error saving notes:', e);
+            showToast('Erro ao salvar notas');
+        }
+    }
+
+    // Canvas management
+    function saveCanvasState() {
+        if (!elements.canvas) return;
+        
+        historyStep++;
+        if (historyStep < drawingHistory.length) {
+            drawingHistory.length = historyStep;
+        }
+        drawingHistory.push(elements.canvas.toDataURL());
+        updateUndoRedoButtons();
+    }
+
+    function undo() {
+        if (historyStep > 0) {
+            historyStep--;
+            restoreCanvasState();
+            updateUndoRedoButtons();
+            autoSaveAfterDrawing();
+        }
+    }
+
+    function redo() {
+        if (historyStep < drawingHistory.length - 1) {
+            historyStep++;
+            restoreCanvasState();
+            updateUndoRedoButtons();
+            autoSaveAfterDrawing();
+        }
+    }
+
+    function restoreCanvasState() {
+        if (!context || historyStep < 0 || historyStep >= drawingHistory.length) return;
+        
+        const img = new Image();
+        img.onload = () => {
+            clearCanvas();
+            context.drawImage(img, 0, 0);
+        };
+        img.src = drawingHistory[historyStep];
+    }
+
+    function updateUndoRedoButtons() {
+        if (elements.undoBtn) elements.undoBtn.disabled = historyStep <= 0;
+        if (elements.redoBtn) elements.redoBtn.disabled = historyStep >= drawingHistory.length - 1;
+    }
+
+    function getCanvasData() {
+        return elements.canvas ? elements.canvas.toDataURL() : '';
+    }
+
+    function resizeCanvas() {
+        if (!elements.canvas) return;
+        
+        const container = elements.canvas.parentElement;
+        if (!container) return;
+        
+        elements.canvas.width = container.offsetWidth;
+        elements.canvas.height = container.offsetHeight;
+        
+        if (currentNoteId) {
+            const note = notes.find(n => n.id === currentNoteId);
+            if (note && note.drawings) {
+                drawStoredDrawings(note.drawings);
             }
+        }
+    }
 
-            function formatDate(timestamp) {
-                const date = new Date(timestamp);
-                return date.toLocaleDateString() + ' ' + date.toLocaleTimeString().substring(0, 5);
-            }
+    function clearCanvas() {
+        if (!context || !elements.canvas) return;
+        context.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
+    }
 
-            function showNote(id) {
-                if (currentNoteId) {
-                    saveCurrentNote();
-                }
-                
-                const note = notes.find(n => n.id === id);
-                if (!note) return;
-                
-                currentNoteId = id;
-                
-                noteTitle.value = note.title || '';
-                textEditor.innerHTML = note.content || '';
-                
-                clearCanvas();
-                if (note.drawings) {
-                    drawStoredDrawings(note.drawings);
-                }
-                
-                renderNotesList();
-            }
-
-            function saveCurrentNote() {
-                if (!currentNoteId) return;
-                
-                const index = notes.findIndex(n => n.id === currentNoteId);
-                if (index !== -1) {
-                    notes[index].title = noteTitle.value;
-                    notes[index].content = textEditor.innerHTML;
-                    notes[index].updatedAt = Date.now();
-                    
-                    notes[index].drawings = [];
-                    
-                    saveNotesToStorage();
-                    
-                    renderNotesList();
-                    
-                    showToast('Nota salva com sucesso!');
-                }
-            }
-
-            function createNewNote() {
-                if (currentNoteId) {
-                    saveCurrentNote();
-                }
-                
-                const newNote = {
-                    id: Date.now().toString(),
-                    title: '',
-                    content: '',
-                    drawings: [],
-                    createdAt: Date.now(),
-                    updatedAt: Date.now()
-                };
-                
-                notes.unshift(newNote);
-                
-                saveNotesToStorage();
-                
-                showNote(newNote.id);
-                
-                noteTitle.focus();
-            }
-
-            function deleteCurrentNote() {
-                if (!currentNoteId) return;
-                
-                const index = notes.findIndex(n => n.id === currentNoteId);
-                if (index !== -1) {
-                    notes.splice(index, 1);
-                    
-                    saveNotesToStorage();
-                    
-                    if (notes.length > 0) {
-                        showNote(notes[0].id);
-                    } else {
-                        createNewNote();
-                    }
-                    
-                    showToast('Nota excluída com sucesso!');
-                }
-            }
-
-            function saveNotesToStorage() {
-                localStorage.setItem('clownfish-notes', JSON.stringify(notes));
-            }
-
-            function setupEventListeners() {
-                addNoteBtn.addEventListener('click', createNewNote);
-                
-                saveBtn.addEventListener('click', () => saveCurrentNote());
-                
-                deleteBtn.addEventListener('click', () => {
-                    if (currentNoteId) {
-                        deleteModal.style.display = 'flex';
-                    }
-                });
-                
-                confirmDelete.addEventListener('click', () => {
-                    deleteCurrentNote();
-                    deleteModal.style.display = 'none';
-                });
-                
-                cancelDelete.addEventListener('click', () => {
-                    deleteModal.style.display = 'none';
-                });
-                
-                closeModal.addEventListener('click', () => {
-                    deleteModal.style.display = 'none';
-                });
-                
-                menuToggle.addEventListener('click', () => {
-                    sidebar.classList.toggle('active');
-                });
-                
-                textEditor.addEventListener('input', () => {
-                    if (autoSaveTimeout) {
-                        clearTimeout(autoSaveTimeout);
-                    }
-                    autoSaveTimeout = setTimeout(() => {
-                        saveCurrentNote();
-                    }, 2000);
-                });
-                
-                noteTitle.addEventListener('input', () => {
-                    if (autoSaveTimeout) {
-                        clearTimeout(autoSaveTimeout);
-                    }
-                    autoSaveTimeout = setTimeout(() => {
-                        saveCurrentNote();
-                    }, 2000);
-                });
-                
-                importBtn.addEventListener('click', () => {
-                    importFile.click();
-                });
-                
-                importFile.addEventListener('change', (e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                            try {
-                                const importedNotes = JSON.parse(event.target.result);
-                                if (Array.isArray(importedNotes)) {
-                                    notes = importedNotes;
-                                    saveNotesToStorage();
-                                    loadNotes();
-                                    if (notes.length > 0) {
-                                        showNote(notes[0].id);
-                                    }
-                                    showToast('Notas importadas com sucesso!');
-                                }
-                            } catch (err) {
-                                showToast('Erro ao importar: formato inválido');
-                            }
-                        };
-                        reader.readAsText(file);
-                        importFile.value = '';
-                    }
-                });
-                
-                exportBtn.addEventListener('click', () => {
-                    const dataStr = JSON.stringify(notes);
-                    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-                    
-                    const exportFileDefaultName = 'clownfish-export.json';
-                    
-                    const linkElement = document.createElement('a');
-                    linkElement.setAttribute('href', dataUri);
-                    linkElement.setAttribute('download', exportFileDefaultName);
-                    linkElement.click();
-                    
-                    showToast('Notas exportadas com sucesso!');
-                });
-                
-                canvas.addEventListener('mousedown', startDrawing);
-                canvas.addEventListener('mousemove', draw);
-                canvas.addEventListener('mouseup', stopDrawing);
-                canvas.addEventListener('mouseout', stopDrawing);
-                
-                canvas.addEventListener('touchstart', handleTouchStart);
-                canvas.addEventListener('touchmove', handleTouchMove);
-                canvas.addEventListener('touchend', handleTouchEnd);
-                
-                window.addEventListener('resize', resizeCanvas);
-            }
-
-            function initDrawingTools() {
-                drawingBtns.forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        drawingBtns.forEach(b => b.classList.remove('active'));
-                        
-                        btn.classList.add('active');
-                        
-                        drawingTool = btn.dataset.tool;
-                        
-                        if (drawingTool === 'text') {
-                            isDrawingMode = false;
-                            canvas.style.pointerEvents = 'none';
-                        } else {
-                            isDrawingMode = true;
-                            canvas.style.pointerEvents = 'auto';
-                        }
-                    });
-                });
-                
-                colorOptions.forEach(option => {
-                    option.addEventListener('click', () => {
-                        colorOptions.forEach(o => o.classList.remove('active'));
-                        
-                        option.classList.add('active');
-                        
-                        drawingColor = option.dataset.color;
-                    });
-                });
-                
-                lineWidthInput.addEventListener('input', () => {
-                    lineWidth = lineWidthInput.value;
-                });
-                
-                drawingBtns[0].click();
-            }
-
-            function initFormatButtons() {
-                formatBtns.forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        const format = btn.dataset.format;
-                        formatText(format);
-                    });
-                });
-            }
-
-            function formatText(format) {
-                document.execCommand(format, false, null);
-                textEditor.focus();
-            }
-
-            function resizeCanvas() {
-                const container = canvas.parentElement;
-                canvas.width = container.offsetWidth;
-                canvas.height = container.offsetHeight;
-                
-                if (currentNoteId) {
-                    const note = notes.find(n => n.id === currentNoteId);
-                    if (note && note.drawings) {
-                        drawStoredDrawings(note.drawings);
-                    }
-                }
-            }
-
-            function startDrawing(e) {
-                if (!isDrawingMode) return;
-                
-                isDrawing = true;
-                
-                const rect = canvas.getBoundingClientRect();
-                startX = e.clientX - rect.left;
-                startY = e.clientY - rect.top;
-                
-                if (drawingTool === 'pen') {
-                    context.beginPath();
-                    context.moveTo(startX, startY);
-                }
-            }
-
-            function draw(e) {
-                if (!isDrawing || !isDrawingMode) return;
-                
-                const rect = canvas.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                
-                context.lineWidth = lineWidth;
+    function drawStoredDrawings(drawingData) {
+        if (!context) return;
+        
+        if (typeof drawingData === 'string') {
+            const img = new Image();
+            img.onload = () => context.drawImage(img, 0, 0);
+            img.src = drawingData;
+        } else if (Array.isArray(drawingData)) {
+            drawingData.forEach(drawing => {
+                context.lineWidth = drawing.lineWidth || lineWidth;
+                context.strokeStyle = drawing.color || drawingColor;
                 context.lineCap = 'round';
-                context.strokeStyle = drawingColor;
                 
-                switch (drawingTool) {
+                switch (drawing.tool) {
                     case 'pen':
-                        context.lineTo(x, y);
-                        context.stroke();
+                        if (drawing.points && drawing.points.length > 0) {
+                            context.beginPath();
+                            context.moveTo(drawing.points[0].x, drawing.points[0].y);
+                            
+                            for (let i = 1; i < drawing.points.length; i++) {
+                                context.lineTo(drawing.points[i].x, drawing.points[i].y);
+                            }
+                            
+                            context.stroke();
+                        }
                         break;
                     case 'line':
-                        clearCanvas();
-                        redrawStoredDrawings();
-                        
                         context.beginPath();
-                        context.moveTo(startX, startY);
-                        context.lineTo(x, y);
+                        context.moveTo(drawing.startX, drawing.startY);
+                        context.lineTo(drawing.endX, drawing.endY);
                         context.stroke();
                         break;
                     case 'rect':
-                        clearCanvas();
-                        redrawStoredDrawings();
-                        
                         context.beginPath();
-                        context.rect(startX, startY, x - startX, y - startY);
+                        context.rect(drawing.startX, drawing.startY, 
+                            drawing.endX - drawing.startX, drawing.endY - drawing.startY);
                         context.stroke();
                         break;
                     case 'circle':
-                        clearCanvas();
-                        redrawStoredDrawings();
-                        
-                        const radius = Math.sqrt(Math.pow(x - startX, 2) + Math.pow(y - startY, 2));
+                        const radius = Math.sqrt(
+                            Math.pow(drawing.endX - drawing.startX, 2) + 
+                            Math.pow(drawing.endY - drawing.startY, 2)
+                        );
                         context.beginPath();
-                        context.arc(startX, startY, radius, 0, 2 * Math.PI);
+                        context.arc(drawing.startX, drawing.startY, radius, 0, 2 * Math.PI);
                         context.stroke();
                         break;
-                    case 'eraser':
-                        context.globalCompositeOperation = 'destination-out';
-                        context.beginPath();
-                        context.arc(x, y, lineWidth * 2, 0, Math.PI * 2);
-                        context.fill();
-                        context.globalCompositeOperation = 'source-over';
-                        break;
                 }
-            }
+            });
+        }
+    }
 
-            function stopDrawing() {
-                if (!isDrawing || !isDrawingMode) return;
+    // Drawing functionality
+    function startDrawing(e) {
+        if (!isDrawingMode || !context) return;
+        
+        isDrawing = true;
+        const rect = elements.canvas.getBoundingClientRect();
+        startX = e.clientX - rect.left;
+        startY = e.clientY - rect.top;
+        
+        if (drawingTool === 'pen') {
+            context.beginPath();
+            context.moveTo(startX, startY);
+            currentPath = [{x: startX, y: startY}];
+        }
+    }
+
+    function draw(e) {
+        if (!isDrawing || !isDrawingMode || !context) return;
+        
+        const rect = elements.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        context.lineWidth = lineWidth;
+        context.lineCap = 'round';
+        context.strokeStyle = drawingColor;
+        
+        switch (drawingTool) {
+            case 'pen':
+                context.lineTo(x, y);
+                context.stroke();
+                currentPath.push({x, y});
+                break;
+            case 'line':
+                clearCanvas();
+                redrawStoredDrawings();
                 
-                isDrawing = false;
+                context.beginPath();
+                context.moveTo(startX, startY);
+                context.lineTo(x, y);
+                context.stroke();
+                break;
+            case 'rect':
+                clearCanvas();
+                redrawStoredDrawings();
                 
-                if (currentNoteId) {
-                    const note = notes.find(n => n.id === currentNoteId);
-                    if (note) {
-                        if (!note.drawings) {
-                            note.drawings = [];
-                        }
-                        
-                        const drawing = {
-                            tool: drawingTool,
-                            color: drawingColor,
-                            lineWidth: lineWidth,
-                            startX: startX,
-                            startY: startY,
-                            endX: startX, 
-                            endY: startY, 
-                            points: [] 
-                        };
-                        
-                        note.drawings.push(drawing);
-                        
-                        note.updatedAt = Date.now();
-                        saveNotesToStorage();
-                        renderNotesList();
-                    }
-                }
-            }
-
-            function handleTouchStart(e) {
-                e.preventDefault();
-                const touch = e.touches[0];
-                const mouseEvent = new MouseEvent('mousedown', {
-                    clientX: touch.clientX,
-                    clientY: touch.clientY
-                });
-                canvas.dispatchEvent(mouseEvent);
-            }
-
-            function handleTouchMove(e) {
-                e.preventDefault();
-                const touch = e.touches[0];
-                const mouseEvent = new MouseEvent('mousemove', {
-                    clientX: touch.clientX,
-                    clientY: touch.clientY
-                });
-                canvas.dispatchEvent(mouseEvent);
-            }
-
-            function handleTouchEnd(e) {
-                e.preventDefault();
-                const mouseEvent = new MouseEvent('mouseup', {});
-                canvas.dispatchEvent(mouseEvent);
-            }
-
-            function clearCanvas() {
-                context.clearRect(0, 0, canvas.width, canvas.height);
-            }
-
-            function drawStoredDrawings(drawings) {
-                if (!drawings || !Array.isArray(drawings)) return;
+                context.beginPath();
+                context.rect(startX, startY, x - startX, y - startY);
+                context.stroke();
+                break;
+            case 'circle':
+                clearCanvas();
+                redrawStoredDrawings();
                 
-                drawings.forEach(drawing => {
-                    context.lineWidth = drawing.lineWidth;
-                    context.strokeStyle = drawing.color;
-                    context.lineCap = 'round';
-                    
-                    switch (drawing.tool) {
-                        case 'pen':
-                            if (drawing.points && drawing.points.length > 0) {
-                                context.beginPath();
-                                context.moveTo(drawing.points[0].x, drawing.points[0].y);
-                                
-                                for (let i = 1; i < drawing.points.length; i++) {
-                                    context.lineTo(drawing.points[i].x, drawing.points[i].y);
-                                }
-                                
-                                context.stroke();
-                            }
-                            break;
-                        case 'line':
-                            context.beginPath();
-                            context.moveTo(drawing.startX, drawing.startY);
-                            context.lineTo(drawing.endX, drawing.endY);
-                            context.stroke();
-                            break;
-                        case 'rect':
-                            context.beginPath();
-                            context.rect(drawing.startX, drawing.startY, 
-                                drawing.endX - drawing.startX, drawing.endY - drawing.startY);
-                            context.stroke();
-                            break;
-                        case 'circle':
-                            const radius = Math.sqrt(
-                                Math.pow(drawing.endX - drawing.startX, 2) + 
-                                Math.pow(drawing.endY - drawing.startY, 2)
-                            );
-                            context.beginPath();
-                            context.arc(drawing.startX, drawing.startY, radius, 0, 2 * Math.PI);
-                            context.stroke();
-                            break;
-                        case 'eraser':
-                            break;
-                    }
-                });
-            }
+                const radius = Math.sqrt(Math.pow(x - startX, 2) + Math.pow(y - startY, 2));
+                context.beginPath();
+                context.arc(startX, startY, radius, 0, 2 * Math.PI);
+                context.stroke();
+                break;
+            case 'eraser':
+                context.globalCompositeOperation = 'destination-out';
+                context.beginPath();
+                context.arc(x, y, lineWidth * 2, 0, Math.PI * 2);
+                context.fill();
+                context.globalCompositeOperation = 'source-over';
+                break;
+        }
+    }
 
-            function redrawStoredDrawings() {
-                if (currentNoteId) {
-                    const note = notes.find(n => n.id === currentNoteId);
-                    if (note && note.drawings) {
-                        drawStoredDrawings(note.drawings);
-                    }
-                }
-            }
+    function stopDrawing(e) {
+        if (!isDrawing || !isDrawingMode) return;
+        
+        isDrawing = false;
+        
+        if (drawingTool !== 'pen' && e) {
+            const rect = elements.canvas.getBoundingClientRect();
+            const endX = e.clientX - rect.left;
+            const endY = e.clientY - rect.top;
+            
+            saveDrawingToNote(endX, endY);
+        } else if (drawingTool === 'pen' && currentPath.length > 0) {
+            saveDrawingToNote();
+        }
+        
+        saveCanvasState();
+        autoSaveAfterDrawing();
+    }
 
-            function showToast(message) {
-                toast.textContent = message;
-                toast.classList.add('show');
-                
-                setTimeout(() => {
-                    toast.classList.remove('show');
-                }, 3000);
-            }
+    function saveDrawingToNote(endX = startX, endY = startY) {
+        if (!currentNoteId) return;
+        
+        const note = notes.find(n => n.id === currentNoteId);
+        if (!note) return;
+        
+        if (!Array.isArray(note.drawings)) {
+            note.drawings = [];
+        }
+        
+        const drawing = {
+            tool: drawingTool,
+            color: drawingColor,
+            lineWidth: lineWidth,
+            startX: startX,
+            startY: startY,
+            endX: endX,
+            endY: endY,
+            points: drawingTool === 'pen' ? [...currentPath] : []
+        };
+        
+        note.drawings.push(drawing);
+        note.updatedAt = Date.now();
+        
+        currentPath = [];
+    }
 
-            init();
+    function autoSaveAfterDrawing() {
+        clearTimeout(autoSaveTimeout);
+        autoSaveTimeout = setTimeout(saveCurrentNote, 1000);
+    }
+
+    function redrawStoredDrawings() {
+        if (currentNoteId) {
+            const note = notes.find(n => n.id === currentNoteId);
+            if (note && note.drawings) {
+                drawStoredDrawings(note.drawings);
+            }
+        }
+    }
+
+    // Touch events
+    function handleTouchStart(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const mouseEvent = new MouseEvent('mousedown', {
+            clientX: touch.clientX,
+            clientY: touch.clientY
         });
+        elements.canvas.dispatchEvent(mouseEvent);
+    }
+
+    function handleTouchMove(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const mouseEvent = new MouseEvent('mousemove', {
+            clientX: touch.clientX,
+            clientY: touch.clientY
+        });
+        elements.canvas.dispatchEvent(mouseEvent);
+    }
+
+    function handleTouchEnd(e) {
+        e.preventDefault();
+        const mouseEvent = new MouseEvent('mouseup', {});
+        elements.canvas.dispatchEvent(mouseEvent);
+    }
+
+    // Event listeners
+    function setupEventListeners() {
+        if (elements.addNoteBtn) {
+            elements.addNoteBtn.addEventListener('click', createNewNote);
+        }
+        
+        if (elements.noteTitle) {
+            elements.noteTitle.addEventListener('input', () => {
+                clearTimeout(autoSaveTimeout);
+                autoSaveTimeout = setTimeout(saveCurrentNote, 500);
+            });
+        }
+        
+        if (elements.textEditor) {
+            elements.textEditor.addEventListener('input', () => {
+                clearTimeout(autoSaveTimeout);
+                autoSaveTimeout = setTimeout(saveCurrentNote, 500);
+            });
+        }
+        
+        if (elements.saveBtn) {
+            elements.saveBtn.addEventListener('click', saveCurrentNote);
+        }
+        
+        if (elements.deleteBtn) {
+            elements.deleteBtn.addEventListener('click', () => {
+                if (elements.deleteModal) {
+                    elements.deleteModal.style.display = 'flex';
+                }
+            });
+        }
+        
+        // Modal events
+        const closeModal = document.querySelector('.close-modal');
+        if (closeModal) {
+            closeModal.addEventListener('click', () => {
+                if (elements.deleteModal) {
+                    elements.deleteModal.style.display = 'none';
+                }
+            });
+        }
+        
+        const cancelDelete = document.getElementById('cancel-delete');
+        if (cancelDelete) {
+            cancelDelete.addEventListener('click', () => {
+                if (elements.deleteModal) {
+                    elements.deleteModal.style.display = 'none';
+                }
+            });
+        }
+        
+        const confirmDelete = document.getElementById('confirm-delete');
+        if (confirmDelete) {
+            confirmDelete.addEventListener('click', () => {
+                deleteCurrentNote();
+                if (elements.deleteModal) {
+                    elements.deleteModal.style.display = 'none';
+                }
+            });
+        }
+        
+        if (elements.undoBtn) {
+            elements.undoBtn.addEventListener('click', undo);
+        }
+        
+        if (elements.redoBtn) {
+            elements.redoBtn.addEventListener('click', redo);
+        }
+        
+        if (elements.menuToggle) {
+            elements.menuToggle.addEventListener('click', () => {
+                if (elements.sidebar) {
+                    elements.sidebar.classList.toggle('active');
+                }
+            });
+        }
+        
+        if (elements.importBtn) {
+            elements.importBtn.addEventListener('click', () => {
+                if (elements.importFile) {
+                    elements.importFile.click();
+                }
+            });
+        }
+        
+        if (elements.exportBtn) {
+            elements.exportBtn.addEventListener('click', exportNotes);
+        }
+        
+        if (elements.importFile) {
+            elements.importFile.addEventListener('change', importNotes);
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Drawing events
+        if (elements.canvas) {
+            elements.canvas.addEventListener('mousedown', startDrawing);
+            elements.canvas.addEventListener('mousemove', draw);
+            elements.canvas.addEventListener('mouseup', stopDrawing);
+            elements.canvas.addEventListener('mouseleave', stopDrawing);
+            
+            // Touch events
+            elements.canvas.addEventListener('touchstart', handleTouchStart);
+            elements.canvas.addEventListener('touchmove', handleTouchMove);
+            elements.canvas.addEventListener('touchend', handleTouchEnd);
+        }
+    }
+
+    function initDrawingTools() {
+        if (!elements.drawingBtns) return;
+        
+        elements.drawingBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                elements.drawingBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                drawingTool = btn.dataset.tool;
+                
+                if (drawingTool === 'text') {
+                    isDrawingMode = false;
+                    if (elements.canvas) elements.canvas.style.pointerEvents = 'none';
+                } else {
+                    isDrawingMode = true;
+                    if (elements.canvas) elements.canvas.style.pointerEvents = 'auto';
+                }
+            });
+        });
+        
+        if (elements.colorOptions) {
+            elements.colorOptions.forEach(option => {
+                option.addEventListener('click', () => {
+                    elements.colorOptions.forEach(o => o.classList.remove('active'));
+                    option.classList.add('active');
+                    drawingColor = option.dataset.color;
+                });
+            });
+        }
+        
+        if (elements.lineWidthInput) {
+            elements.lineWidthInput.addEventListener('input', () => {
+                lineWidth = parseInt(elements.lineWidthInput.value) || 3;
+            });
+        }
+        
+        // Set default tool
+        if (elements.drawingBtns.length > 0) {
+            elements.drawingBtns[0].click();
+        }
+    }
+
+    function initFormatButtons() {
+        if (!elements.formatBtns) return;
+        
+        elements.formatBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const format = btn.dataset.format;
+                formatText(format);
+            });
+        });
+    }
+
+    function formatText(format) {
+        try {
+            document.execCommand(format, false, null);
+            if (elements.textEditor) elements.textEditor.focus();
+        } catch (e) {
+            console.error('Error formatting text:', e);
+        }
+    }
+
+    // Import/Export functions
+    function exportNotes() {
+        try {
+            const dataStr = JSON.stringify(notes, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+            link.download = 'clownfish-notes.json';
+            link.click();
+            
+            showToast('Notas exportadas!');
+        } catch (e) {
+            console.error('Error exporting notes:', e);
+            showToast('Erro ao exportar notas');
+        }
+    }
+
+    function importNotes(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const importedNotes = JSON.parse(e.target.result);
+                if (Array.isArray(importedNotes)) {
+                    notes = importedNotes;
+                    saveNotesToStorage();
+                    renderNotesList();
+                    
+                    if (notes.length > 0) {
+                        showNote(notes[0].id);
+                    }
+                    
+                    showToast('Notas importadas!');
+                } else {
+                    showToast('Arquivo inválido');
+                }
+            } catch (e) {
+                console.error('Error importing notes:', e);
+                showToast('Erro ao importar notas');
+            }
+        };
+        reader.readAsText(file);
+        
+        // Reset file input
+        event.target.value = '';
+    }
+
+    function showToast(message) {
+        if (!elements.toast) return;
+        
+        elements.toast.textContent = message;
+        elements.toast.classList.add('show');
+        
+        setTimeout(() => {
+            elements.toast.classList.remove('show');
+        }, 3000);
+    }
+
+    // Initialize the application
+    init();
+});
     </script>
 </body>
 </html>
